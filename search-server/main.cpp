@@ -4,7 +4,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <map>
+#include <cmath>
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
@@ -44,12 +45,12 @@ vector<string> SplitIntoWords(const string& text) {
 
 struct Document {
     int id;
-    int relevance;
+    double relevance;
 };
 
 class SearchServer {
 public:
-    
+   
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
@@ -58,8 +59,11 @@ public:
 
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
+         double TF;
+        for (const auto& word: words) { TF=count_if (words.begin(), words.begin(), word)/words.size();
+            word_to_document_freqs_[word]. insert({document_id, TF}) ;
+               document_count_++;                 }
         
-        documents_.push_back({document_id, words});
                                      
     }
 
@@ -78,18 +82,15 @@ public:
     }
 
 private:
+     int document_count_ = 0;
     struct Query {
         set <string> plus_words;
         set <string> minus_words;
     };
     
-    struct DocumentContent {
-        int id = 0;
-        vector<string> words;
-    };
+     
 
-    vector<DocumentContent> documents_;
-
+   map<string, map<int, double>> word_to_document_freqs_;
     set<string> stop_words_;
 
     bool IsStopWord(const string& word) const {
@@ -109,51 +110,39 @@ private:
    Query ParseQuery(const string& text) const {
        Query result;
         for (  string  word : SplitIntoWordsNoStop(text)) {
-            if (word[0]==' ') {word=word.substr(1); result.minus_words.insert(word); }
+            if (word[0]=='-') {word=word.substr(1); result.minus_words.insert(word); }
             else result.plus_words.insert(word);
         }
        return result;
     }
 
-    bool IsThereMinusWord (const DocumentContent& document, const set <string>& minus_words) const { 
-         bool x= false;
-        for (auto& minus_word:minus_words ) { if (count(document.words.begin(),document.words.end(),minus_word )) x=true; return x;  break;
-            }
-        return x;
-    }
-    vector<Document> FindAllDocuments( const  Query& query_words) const  {
-        vector<Document> matched_documents;
-        for (const auto& document : documents_) {
-            const int relevance = MatchDocument(document, query_words.plus_words);
-            if ((relevance > 0)&&  ! IsThereMinusWord(document,query_words.minus_words ) ) {
-                matched_documents.push_back({document.id, relevance});
-            }
+  vector<Document> FindAllDocuments( const  Query& query_words) const  {
+           vector<Document> matched_documents;
+        map <int,double> document_to_relevance;
+      int IDF=0;
+        for (const auto& plus_word: query_words.plus_words) {
+            /*if (word_to_document_freqs_.count(plus_word))*/ for (const auto& i:word_to_document_freqs_.at(plus_word))  {
+                IDF= log (document_count_/ word_to_document_freqs_.at(plus_word).size());
+               
+                document_to_relevance[i.first]=i.second+IDF; }
         }
-        return matched_documents;
+         for (const auto& minus_word: query_words.minus_words) {
+            if (word_to_document_freqs_.count (minus_word)) { for (const auto& i:word_to_document_freqs_.at(minus_word))
+                 document_to_relevance.erase(i.first); }
+        }
+          for (const auto& i: document_to_relevance) {matched_documents.push_back({i.first, i.second});}
+            return matched_documents;
+     
     }
 
-    static int MatchDocument(const DocumentContent& content, const set<string>& query_words) {
-        if (query_words.empty()) {
-            return 0;
-        }
-        set<string> matched_words;
-        for (const string& word : content.words) {
-            if  (matched_words.count(word) != 0)   {
-                continue;
-            }
-            if (query_words.count(word) != 0) {
-                matched_words.insert(word);
-            }
-        }
-        return static_cast<int>(matched_words.size());
-    }
+ 
 };
 
 SearchServer CreateSearchServer() {
     SearchServer search_server;
     search_server.SetStopWords(ReadLine());
 
-    const int document_count = ReadLineWithNumber();
+     const int document_count= ReadLineWithNumber();
     for (int document_id = 0; document_id < document_count; ++document_id) {
         search_server.AddDocument(document_id, ReadLine());
     }
