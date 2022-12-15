@@ -63,12 +63,12 @@ public:
         
         for (const auto& word: words) {  
             word_to_document_freqs_[word][document_id]+= TF  ;
-               document_count_++;                 }
-        
+                              }
+        document_count_++;  
                                      
     }
 
-    vector<Document> FindTopDocuments( const string& raw_query ) const {
+    vector<Document> FindTopDocuments( const string& raw_query ) const  {
        const Query query_words = ParseQuery(raw_query); 
         auto matched_documents = FindAllDocuments(query_words);
 
@@ -117,13 +117,14 @@ private:
        return result;
     }
 
-  vector<Document> FindAllDocuments( const  Query& query_words) const  {
+  vector<Document> FindAllDocuments( const  Query& query_words)  const   {
            vector<Document> matched_documents;
         map <int,double> document_to_relevance;
-      double IDF;
-        for (const auto& plus_word: query_words.plus_words) { 
+      double IDF=0;
+        for ( const  auto&  plus_word: query_words.plus_words) { 
+            if  (word_to_document_freqs_.count(plus_word))
             IDF= log (static_cast<double> (document_count_)/ word_to_document_freqs_.at(plus_word).size());
-          for (const auto& i:word_to_document_freqs_.at(plus_word))  {
+          for ( const auto& i:word_to_document_freqs_.at(plus_word))  {
                             
                 document_to_relevance[i.first]+=i.second*IDF; }
         }    
