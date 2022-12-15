@@ -59,9 +59,10 @@ public:
 
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
-         double TF;
-        for (const auto& word: words) { TF=count_if (words.begin(), words.begin(), word)/words.size();
-            word_to_document_freqs_[word]. insert({document_id, TF}) ;
+         double TF= 1.0/words.size();
+        
+        for (const auto& word: words) {  
+            word_to_document_freqs_[word][document_id]+= TF  ;
                document_count_++;                 }
         
                                      
@@ -119,17 +120,21 @@ private:
   vector<Document> FindAllDocuments( const  Query& query_words) const  {
            vector<Document> matched_documents;
         map <int,double> document_to_relevance;
-      int IDF=0;
-        for (const auto& plus_word: query_words.plus_words) {
-            /*if (word_to_document_freqs_.count(plus_word))*/ for (const auto& i:word_to_document_freqs_.at(plus_word))  {
-                IDF= log (document_count_/ word_to_document_freqs_.at(plus_word).size());
-               
-                document_to_relevance[i.first]=i.second+IDF; }
-        }
+      double IDF;
+        for (const auto& plus_word: query_words.plus_words) { 
+            IDF= log (static_cast<double> (document_count_)/ word_to_document_freqs_.at(plus_word).size());
+          for (const auto& i:word_to_document_freqs_.at(plus_word))  {
+                            
+                document_to_relevance[i.first]+=i.second*IDF; }
+        }    
+      map <int,double> document_to_delete;
          for (const auto& minus_word: query_words.minus_words) {
+            
             if (word_to_document_freqs_.count (minus_word)) { for (const auto& i:word_to_document_freqs_.at(minus_word))
-                 document_to_relevance.erase(i.first); }
+                  document_to_delete.insert(i); }
         }
+      for ( const auto& a: document_to_delete)
+      {document_to_relevance.erase(a.first);} 
           for (const auto& i: document_to_relevance) {matched_documents.push_back({i.first, i.second});}
             return matched_documents;
      
