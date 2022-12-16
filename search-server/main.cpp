@@ -122,7 +122,7 @@ private:
         map <int,double> document_to_relevance;
       double IDF=0;
         for ( const  auto&  plus_word: query_words.plus_words) { 
-            if  (word_to_document_freqs_.count(plus_word))
+            if  (!word_to_document_freqs_.count(plus_word)) {continue;}
             IDF= log (static_cast<double> (document_count_)/ word_to_document_freqs_.at(plus_word).size());
           for ( const auto& i:word_to_document_freqs_.at(plus_word))  {
                             
@@ -164,3 +164,4 @@ int main() {
         cout << "{ document_id = "s << document_id << ", "
              << "relevance = "s << relevance << " }"s << endl;
     }
+}
