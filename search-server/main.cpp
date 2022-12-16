@@ -164,4 +164,3 @@ int main() {
         cout << "{ document_id = "s << document_id << ", "
              << "relevance = "s << relevance << " }"s << endl;
     }
-}
