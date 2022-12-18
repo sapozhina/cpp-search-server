@@ -84,11 +84,7 @@ public:
 
 private:
 	int document_count_ = 0;
-/*	struct Query {
-		set<string> plus_words;
-		set<string> minus_words;
-	};
-*/
+
 	map<string, map<int, double>> word_to_document_freqs_;
 	set<string> stop_words_;
 
@@ -105,19 +101,7 @@ private:
 		}
 		return words;
 	}
-/*
-	Query ParseQuery(const string &text) const {
-		Query result;
-		for (string word : SplitIntoWordsNoStop(text)) {
-			if (word[0] == '-') {
-				word = word.substr(1);
-				result.minus_words.insert(word);
-			} else
-				result.plus_words.insert(word);
-		}
-		return result;
-	}
-*/
+
 
 	struct QueryWord {
 	        string data;
