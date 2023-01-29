@@ -13,6 +13,7 @@ using namespace std;
 /*------------------------------------класс SearchServer-------------------------------------------------------*/
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double ACCEPTED_RELEVANCE_DIFFERENCE = 1e-6;
 
 string ReadLine() {
     string s;
@@ -88,7 +89,7 @@ public:
 
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
-                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                 if (abs(lhs.relevance - rhs.relevance) < ACCEPTED_RELEVANCE_DIFFERENCE) {
                      return lhs.rating > rhs.rating;
                  } else {
                      return lhs.relevance > rhs.relevance;
@@ -294,6 +295,24 @@ ostream& operator<<( ostream& out, const set<Element2>& x ) {
     return out;
 }
 
+ostream& operator<<( ostream& out, const DocumentStatus& x ) {
+ switch (x){
+    case DocumentStatus::ACTUAL:
+    out<<"ACTUAL"s;
+    break;
+    case DocumentStatus::BANNED:
+    out<<"BANNED"s;
+    break;
+    case DocumentStatus::IRRELEVANT:
+    out<<"IRRELEVANT"s;
+    break;
+    case DocumentStatus::REMOVED:
+    out<<"REMOVED"s;
+    break;
+ }
+
+    return out;
+}
 
 template < typename key,  typename value>
 ostream& operator<<( ostream& out, const map <key, value>& x ) {
@@ -352,6 +371,23 @@ void RunTestImpl( TestFunc testfunc, const string& testfunc_str ) {
 /* ----------------------------------------------------------------------*/
 /*-----------------------------------------ТЕСТЫ-------------------------------------------*/
 
+// проверяем добавление документов
+void TestAddingDocumentsIncreasesDocumentCount () {
+    const int doc_id = 42;
+    const string content = "cat in the city"s;
+    const vector<int> ratings = {1, 2, 3};
+    {
+        SearchServer server;
+        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 0, "изначально в сервере не должно быть документов"s);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 1, "не работает метод добавления документов"s);
+        
+    }
+     
+}
+
+
+
 void TestExcludeStopWordsFromAddedDocumentContent() {
     const int doc_id = 42;
     const string content = "cat in the city"s;
@@ -384,7 +420,10 @@ void TestExcludedocumentsWithMinusWords(){
     const vector<int> ratings = {1, 2, 3};
     SearchServer server;
     server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-    ASSERT_EQUAL_HINT((server.FindTopDocuments("in -the"s).size()), 0, ("документы с минус-словами должны исключаться из результатов поиска"s));
+    server.AddDocument(3, "dog in question"s, DocumentStatus::ACTUAL, {6, 8, 1});
+    auto result= server.FindTopDocuments("in -the"s);
+    ASSERT_EQUAL_HINT((result.size()), 1, ("документы с минус-словами должны исключаться из результатов поиска"s));
+    ASSERT_EQUAL_HINT((result[0].id), 3, ("документы с минус-словами должны исключаться из результатов поиска"s));
 }
 // проверяем матчинг документов
 void TestDocumentMatching(){
@@ -394,11 +433,25 @@ void TestDocumentMatching(){
     
     SearchServer server;
     server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-    const auto result=server.MatchDocument("in city"s, doc_id);
-    vector<string> words=get<0>(result);
-   ASSERT_EQUAL((words.size()),2);
-   ASSERT_EQUAL_HINT((words[0]), "city"s, "метод MatchDocument работает некорректно"s);
-    ASSERT_EQUAL_HINT((words[1]),"in"s, "метод MatchDocument работает некорректно"s);
+    const auto [words, status]=server.MatchDocument("in city"s, doc_id);
+    ASSERT_EQUAL((words.size()), 2);
+    const vector<string> expected_result={"city"s, "in"s};
+    ASSERT_EQUAL_HINT((words), (expected_result), "метод MatchDocument работает некорректно"s);
+    ASSERT_EQUAL_HINT((status), (DocumentStatus::ACTUAL), "метод MatchDocument работает некорректно"s);
+    
+    {
+        const auto [words2, status2]=server.MatchDocument("in -city"s, doc_id);
+        ASSERT_EQUAL_HINT((words2.size()), 0, "метод MatchDocument работает некорректно при наличии стоп-слов в запросе"s);
+        
+    }
+
+    {
+        server.SetStopWords("in"s);
+        const auto [words3, status3]=server.MatchDocument("in city"s, doc_id);
+        const vector<string> expected_result3={"city"s};
+        ASSERT_EQUAL_HINT((words3), (expected_result3), "метод MatchDocument работает некорректно при добавлении стоп-слов"s);
+
+    }
 }
 
 // проверяем cортировку документов
@@ -409,19 +462,41 @@ void TestDocumentSorting(){
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
     const auto result=server.FindTopDocuments("bite"s );
-    ASSERT_EQUAL ( (result.size()),2);
-    ASSERT_HINT ( ( result[0].relevance>result[1].relevance), "сортирока документов по релевантности работает некорректно"s);
+    ASSERT_EQUAL((result.size()), 2);
+    ASSERT_HINT(( result[0].relevance>result[1].relevance), "сортирока документов по релевантности работает некорректно"s);
 }
 //проверяем вычисление рейтинга документов
 void TestDocumentRating(){
-     SearchServer server;
-    server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
-    server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
-    server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
+    SearchServer server;
+    const int doc_id1 = 0;
+    const string content1 = "cat dog bite bat"s;
+    const vector<int> ratings1 = {-7, 4, 3};
+    const int doc_id2 = 1;
+    const string content2 = "whale fox bite bat bite"s;
+    const vector<int> ratings2 = {-4, 5, 5};
+    const int doc_id3 = 2;
+    const string content3 = "box craft"s;
+    const vector<int> ratings3 = {-5, 9, 0};
+    server.AddDocument(doc_id1, content1, DocumentStatus::ACTUAL, ratings1);
+    server.AddDocument(doc_id2, content2, DocumentStatus::ACTUAL, ratings2);
+    server.AddDocument(doc_id3, content3, DocumentStatus::ACTUAL, ratings3);
     const auto result=server.FindTopDocuments("bite"s );
-    ASSERT_EQUAL( (result.size()), 2);
-     ASSERT_EQUAL_HINT ( (result[0].rating), 2 , "неправильно считается рейтинг документов"s);
-     ASSERT_EQUAL_HINT ( (result[1].rating), 0, "неправильно считается рейтинг документов"s);
+    ASSERT_EQUAL((result.size()), 2);
+    
+    int sum1=0;
+    for (int x: ratings1) {
+        sum1+=x;
+    }
+    int expected_rating1= sum1 / (int)ratings1.size();
+
+    int sum2=0;
+    for (int x: ratings2) {
+        sum2+=x;
+    }
+    int expected_rating2= sum2 / (int)ratings2.size();
+
+    ASSERT_EQUAL_HINT((result[0].rating), expected_rating2 , "неправильно считается рейтинг документов"s);
+    ASSERT_EQUAL_HINT((result[1].rating), expected_rating1 , "неправильно считается рейтинг документов"s);
 }
 //проверяем использование предиката пользователя
 void TestUserPredicate(){
@@ -429,50 +504,80 @@ void TestUserPredicate(){
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
-    const auto result=server.FindTopDocuments("bite"s, [] (int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; }) ;
-    ASSERT_EQUAL ((result.size()), 1);
-    ASSERT_EQUAL_HINT  ((result[0].id), 0, "возможность фильтрации по предикату пользователя не реализована"s);
+    const auto result=server.FindTopDocuments("bite"s, [] (int document_id, DocumentStatus status, int rating) {return document_id % 2 == 0;}) ;
+    ASSERT_EQUAL((result.size()), 1);
+    ASSERT_EQUAL_HINT((result[0].id), 0, "возможность фильтрации по предикату пользователя не реализована"s);
      
 }
 
 //проверяем поиск документов с заданным статусом
 void TestDocumentStatus(){
-     SearchServer server;
+    SearchServer server;
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::BANNED, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::IRRELEVANT, {-5, 9, 0});
-    const auto result=server.FindTopDocuments("bite"s, DocumentStatus::BANNED  ) ;
-    ASSERT_EQUAL ((result.size()), 1);
-   ASSERT_EQUAL_HINT ((result[0].id), 1, "нужно починить поиск документов с заданным статусом"s );
+    const auto result=server.FindTopDocuments("bite"s, DocumentStatus::BANNED) ;
+    ASSERT_EQUAL((result.size()), 1);
+    ASSERT_EQUAL_HINT((result[0].id), 1, "нужно починить поиск документов с заданным статусом"s);
+
+    const auto result2=server.FindTopDocuments("bite"s, DocumentStatus::REMOVED) ;
+    ASSERT_EQUAL_HINT((result2.size()), 0, "неправильно работает поиск документа по статусу, не соответствующему статусу документа"s );
+    
      
 }
 
 //проверяем вычисление релевантности
 void TestDocumentRelevance(){
-     SearchServer server;
-    const double ACCEPTED=0.001;
-    server.AddDocument(0, "белый кот и модный ошейник"s,        DocumentStatus::ACTUAL, {8, -3});
-    server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
-    server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
-     
-    const auto result=server.FindTopDocuments("пушистый ухоженный кот"s) ;
-   ASSERT_EQUAL ((result.size()), 3);
-    ASSERT_HINT ((result[0].relevance-0.866434<ACCEPTED), "некорректно вычисляется релевантность документов"s );
-  
-    ASSERT_HINT( (result[2].relevance-0.173287<ACCEPTED) , "некорректно вычисляется релевантность документов"s );
+    SearchServer server;
+    const int doc_id1 = 0;
+    const string content1 = "cat dog bite bat"s;
+    const vector<int> ratings1 = {-7, 4, 3};
+    const int doc_id2 = 1;
+    const string content2 = "whale fox bite bat bite"s;
+    const vector<int> ratings2 = {-4, 5, 5};
+    const int doc_id3 = 2;
+    const string content3 = "box craft"s;
+    const vector<int> ratings3 = {-5, 9, 0};
+    const int DOCUMENT_COUNT = 3;
+
+    server.AddDocument(doc_id1, content1, DocumentStatus::ACTUAL, ratings1);
+    server.AddDocument(doc_id2, content2, DocumentStatus::ACTUAL, ratings2);
+    server.AddDocument(doc_id3, content3, DocumentStatus::ACTUAL, ratings3);
+    const auto result=server.FindTopDocuments("bite box"s) ;
+    
+    
+        double IDF_bite= log(static_cast<double>(DOCUMENT_COUNT) / 2.0); // слово bite содержится в двух документах
+        double IDF_box= log(static_cast<double>(DOCUMENT_COUNT) / 1.0); // слово box содержится в одном документе
+    
+
+    ASSERT_EQUAL((result.size()), 3);
+
+    
+       const double TF_bite_1= 0.25;
+       const double TF_bite_2= 0.4;
+       const double TF_box_3= 0.5;
+       const double expected_relevance1=  TF_bite_1 * IDF_bite; //0.044
+       const double expected_relevance2=  TF_bite_2 * IDF_bite; //0.07
+       const double expected_relevance3=  TF_box_3 * IDF_box;  //0.23
+
+    
+    ASSERT_HINT((abs(result[0].relevance-expected_relevance3) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
+    ASSERT_HINT((abs(result[1].relevance-expected_relevance2) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
+    ASSERT_HINT((abs(result[2].relevance-expected_relevance1) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
      
 }
 
 // Функция TestSearchServer является точкой входа для запуска тестов
 void TestSearchServer() {
-    RUN_TEST (TestExcludeStopWordsFromAddedDocumentContent);
-    RUN_TEST (TestExcludedocumentsWithMinusWords);
-    RUN_TEST (TestDocumentMatching);
-    RUN_TEST (TestDocumentSorting);
-    RUN_TEST (TestDocumentRating);
-    RUN_TEST (TestUserPredicate);
-    RUN_TEST (TestDocumentStatus);
-    RUN_TEST (TestDocumentRelevance);
+    RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
+    RUN_TEST(TestExcludedocumentsWithMinusWords);
+    RUN_TEST(TestDocumentMatching);
+    RUN_TEST(TestDocumentSorting);
+    RUN_TEST(TestDocumentRating);
+    RUN_TEST(TestUserPredicate);
+    RUN_TEST(TestDocumentStatus);
+    RUN_TEST(TestDocumentRelevance);
+    RUN_TEST(TestAddingDocumentsIncreasesDocumentCount);  
     // Не забудьте вызывать остальные тесты здесь
 }
 
