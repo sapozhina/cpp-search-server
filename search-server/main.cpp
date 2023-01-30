@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 
 using namespace std;
 
@@ -49,9 +50,17 @@ vector<string> SplitIntoWords(const string& text) {
 }
 
 struct Document {
-    int id;
-    double relevance;
-    int rating;
+    Document() = default;
+
+    Document(int id, double relevance, int rating)
+        : id(id)
+        , relevance(relevance)
+        , rating(rating) {
+    }
+
+    int id = 0;
+    double relevance = 0.0;
+    int rating = 0;
 };
 
 enum class DocumentStatus {
@@ -63,20 +72,42 @@ enum class DocumentStatus {
 
 class SearchServer {
 public:
+
+    SearchServer()=default;
+
+    SearchServer(const string& stop_words) {
+        for (const auto& word:SplitIntoWords(stop_words)) {
+             if (!IsValidWord(word)) {throw invalid_argument("стопс-слова не должны содержать недопустимые символы"s);}
+            stop_words_.insert(word);
+        }
+    }
+
+    template <typename Cont>
+    SearchServer(const Cont& stop_words) {
+        for (const auto word: stop_words) {
+             if (!IsValidWord(word)) {throw invalid_argument("стоп-слова не должны содержать недопустимые символы"s);} 
+            stop_words_.insert(word);    
+        }
+    }
+    
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
+            if (!IsValidWord(word)) {throw invalid_argument("стоп-слова не должны содержать недопустимые символы"s);}
             stop_words_.insert(word);
         }
     }
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
+        if (document_id<0) {throw invalid_argument("Попытка добавить документ с отрицательным id"s);}
+        if (documents_.count(document_id)) {throw invalid_argument("Попытка добавить документ c id ранее добавленного документа"s);}                
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+        docIDs.push_back(document_id);
     }
   
     
@@ -140,6 +171,18 @@ public:
         return {matched_words, documents_.at(document_id).status};
     }
 
+    static bool IsValidWord(const string& word) {
+        // A valid word must not contain special characters
+        return none_of(word.begin(), word.end(), [](char c) {
+            return c >= '\0' && c < ' ';
+        });
+    }
+    
+    int GetDocumentId(int index) const{
+    if (index<0 || index>docIDs.size()) {throw out_of_range("индекс переданного документа выходит за пределы допустимого диапазона"s);} 
+        return docIDs[index];
+    }
+
 private:
     struct DocumentData {
         int rating;
@@ -149,6 +192,7 @@ private:
     set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
+    vector<int> docIDs;
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -157,6 +201,7 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
+            if (!IsValidWord(word)) {throw invalid_argument("Наличие недопустимых символов (с кодами от 0 до 31) в тексте добавляемого документа"s);}
             if (!IsStopWord(word)) {
                 words.push_back(word);
             }
@@ -199,9 +244,12 @@ private:
     Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
+            if (!IsValidWord(word)) {throw invalid_argument("В словах поискового запроса есть недопустимые символы с кодами от 0 до 31"s);}
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
+                    if (query_word.data[0]=='-') {throw invalid_argument("Наличие более чем одного минуса перед словами, которых не должно быть в искомых документах"s);}
+                    if (query_word.data.empty()) {throw invalid_argument("Отсутствие текста после символа «минус» в поисковом запросе"s);}
                     query.minus_words.insert(query_word.data);
                 } else {
                     query.plus_words.insert(query_word.data);
