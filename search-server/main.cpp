@@ -481,23 +481,25 @@ void TestDocumentMatching(){
     
     SearchServer server;
     server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-    const auto [words, status]=server.MatchDocument("in city"s, doc_id);
-    ASSERT_EQUAL((words.size()), 2);
-    const vector<string> expected_result={"city"s, "in"s};
-    ASSERT_EQUAL_HINT((words), (expected_result), "метод MatchDocument работает некорректно"s);
-    ASSERT_EQUAL_HINT((status), (DocumentStatus::ACTUAL), "метод MatchDocument работает некорректно"s);
     
     {
-        const auto [words2, status2]=server.MatchDocument("in -city"s, doc_id);
-        ASSERT_EQUAL_HINT((words2.size()), 0, "метод MatchDocument работает некорректно при наличии стоп-слов в запросе"s);
-        
+        const auto [words, status] = server.MatchDocument("in city"s, doc_id);
+        ASSERT_EQUAL((words.size()), 2);
+        const vector<string> expected_result = {"city"s, "in"s};
+        ASSERT_EQUAL_HINT(words, expected_result, "метод MatchDocument работает некорректно"s);
+        ASSERT_EQUAL_HINT(status, DocumentStatus::ACTUAL, "метод MatchDocument работает некорректно"s);
+    }
+
+    {
+        const auto [words, status] = server.MatchDocument("in -city"s, doc_id);
+        ASSERT_EQUAL_HINT(words.size(), 0, "метод MatchDocument работает некорректно при наличии стоп-слов в запросе"s);
     }
 
     {
         server.SetStopWords("in"s);
-        const auto [words3, status3]=server.MatchDocument("in city"s, doc_id);
-        const vector<string> expected_result3={"city"s};
-        ASSERT_EQUAL_HINT((words3), (expected_result3), "метод MatchDocument работает некорректно при добавлении стоп-слов"s);
+        const auto [words, status] = server.MatchDocument("in city"s, doc_id);
+        const vector<string> expected_result = {"city"s};
+        ASSERT_EQUAL_HINT(words, expected_result, "метод MatchDocument работает некорректно при добавлении стоп-слов"s);
 
     }
 }
@@ -509,9 +511,9 @@ void TestDocumentSorting(){
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
-    const auto result=server.FindTopDocuments("bite"s );
+    const auto result = server.FindTopDocuments("bite"s );
     ASSERT_EQUAL((result.size()), 2);
-    ASSERT_HINT(( result[0].relevance>result[1].relevance), "сортирока документов по релевантности работает некорректно"s);
+    ASSERT_HINT((result[0].relevance>result[1].relevance), "сортирока документов по релевантности работает некорректно"s);
 }
 //проверяем вычисление рейтинга документов
 void TestDocumentRating(){
@@ -528,23 +530,23 @@ void TestDocumentRating(){
     server.AddDocument(doc_id1, content1, DocumentStatus::ACTUAL, ratings1);
     server.AddDocument(doc_id2, content2, DocumentStatus::ACTUAL, ratings2);
     server.AddDocument(doc_id3, content3, DocumentStatus::ACTUAL, ratings3);
-    const auto result=server.FindTopDocuments("bite"s );
-    ASSERT_EQUAL((result.size()), 2);
+    const auto result = server.FindTopDocuments("bite"s);
+    ASSERT_EQUAL(result.size(), 2);
     
-    int sum1=0;
+    int ratings_sum_doc1 = 0;
     for (int x: ratings1) {
-        sum1+=x;
+        ratings_sum_doc1 += x;
     }
-    int expected_rating1= sum1 / (int)ratings1.size();
+    int expected_rating1 = ratings_sum_doc1 / static_cast<int>(ratings1.size());
 
-    int sum2=0;
+    int ratings_sum_doc2 = 0;
     for (int x: ratings2) {
-        sum2+=x;
+        ratings_sum_doc2 += x;
     }
-    int expected_rating2= sum2 / (int)ratings2.size();
+    int expected_rating2 = ratings_sum_doc2 / static_cast<int>(ratings2.size());
 
-    ASSERT_EQUAL_HINT((result[0].rating), expected_rating2 , "неправильно считается рейтинг документов"s);
-    ASSERT_EQUAL_HINT((result[1].rating), expected_rating1 , "неправильно считается рейтинг документов"s);
+    ASSERT_EQUAL_HINT(result[0].rating, expected_rating2 , "неправильно считается рейтинг документов"s);
+    ASSERT_EQUAL_HINT(result[1].rating, expected_rating1 , "неправильно считается рейтинг документов"s);
 }
 //проверяем использование предиката пользователя
 void TestUserPredicate(){
@@ -552,9 +554,9 @@ void TestUserPredicate(){
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
-    const auto result=server.FindTopDocuments("bite"s, [] (int document_id, DocumentStatus status, int rating) {return document_id % 2 == 0;}) ;
-    ASSERT_EQUAL((result.size()), 1);
-    ASSERT_EQUAL_HINT((result[0].id), 0, "возможность фильтрации по предикату пользователя не реализована"s);
+    const auto result = server.FindTopDocuments("bite"s, [] (int document_id, DocumentStatus status, int rating) {return document_id % 2 == 0;}) ;
+    ASSERT_EQUAL(result.size(), 1);
+    ASSERT_EQUAL_HINT(result[0].id, 0, "возможность фильтрации по предикату пользователя не реализована"s);
      
 }
 
@@ -564,12 +566,12 @@ void TestDocumentStatus(){
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::BANNED, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::IRRELEVANT, {-5, 9, 0});
-    const auto result=server.FindTopDocuments("bite"s, DocumentStatus::BANNED) ;
-    ASSERT_EQUAL((result.size()), 1);
-    ASSERT_EQUAL_HINT((result[0].id), 1, "нужно починить поиск документов с заданным статусом"s);
+    const auto result = server.FindTopDocuments("bite"s, DocumentStatus::BANNED) ;
+    ASSERT_EQUAL(result.size(), 1);
+    ASSERT_EQUAL_HINT(result[0].id, 1, "нужно починить поиск документов с заданным статусом"s);
 
-    const auto result2=server.FindTopDocuments("bite"s, DocumentStatus::REMOVED) ;
-    ASSERT_EQUAL_HINT((result2.size()), 0, "неправильно работает поиск документа по статусу, не соответствующему статусу документа"s );
+    const auto result2 = server.FindTopDocuments("bite"s, DocumentStatus::REMOVED) ;
+    ASSERT_EQUAL_HINT(result2.size(), 0, "неправильно работает поиск документа по статусу, не соответствующему статусу документа"s);
     
      
 }
@@ -591,27 +593,27 @@ void TestDocumentRelevance(){
     server.AddDocument(doc_id1, content1, DocumentStatus::ACTUAL, ratings1);
     server.AddDocument(doc_id2, content2, DocumentStatus::ACTUAL, ratings2);
     server.AddDocument(doc_id3, content3, DocumentStatus::ACTUAL, ratings3);
-    const auto result=server.FindTopDocuments("bite box"s) ;
+    const auto result = server.FindTopDocuments("bite box"s);
     
     
-        double IDF_bite= log(static_cast<double>(DOCUMENT_COUNT) / 2.0); // слово bite содержится в двух документах
-        double IDF_box= log(static_cast<double>(DOCUMENT_COUNT) / 1.0); // слово box содержится в одном документе
+    double IDF_bite = log(static_cast<double>(DOCUMENT_COUNT) / 2.0); // слово bite содержится в двух документах
+    double IDF_box = log(static_cast<double>(DOCUMENT_COUNT) / 1.0); // слово box содержится в одном документе
     
 
     ASSERT_EQUAL((result.size()), 3);
 
     
-       const double TF_bite_1= 0.25;
-       const double TF_bite_2= 0.4;
-       const double TF_box_3= 0.5;
-       const double expected_relevance1=  TF_bite_1 * IDF_bite; //0.044
-       const double expected_relevance2=  TF_bite_2 * IDF_bite; //0.07
-       const double expected_relevance3=  TF_box_3 * IDF_box;  //0.23
+       const double TF_bite_1 = 1.0 / 4.0; // слово bite встречается 1 раз в документе из 4 слов
+       const double TF_bite_2 = 2.0 / 5.0; // слово bite встречается 2 раза в документе из 5 слов
+       const double TF_box_3 = 1.0 / 2.0;    // слово box встречается 1 раз в документе из 2 слов
+       const double expected_relevance1 = TF_bite_1 * IDF_bite; //0.044
+       const double expected_relevance2 = TF_bite_2 * IDF_bite; //0.07
+       const double expected_relevance3 = TF_box_3 * IDF_box;  //0.23
 
     
-    ASSERT_HINT((abs(result[0].relevance-expected_relevance3) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
-    ASSERT_HINT((abs(result[1].relevance-expected_relevance2) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
-    ASSERT_HINT((abs(result[2].relevance-expected_relevance1) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s );
+    ASSERT_HINT((abs(result[0].relevance - expected_relevance3) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
+    ASSERT_HINT((abs(result[1].relevance - expected_relevance2) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
+    ASSERT_HINT((abs(result[2].relevance - expected_relevance1) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
      
 }
 
