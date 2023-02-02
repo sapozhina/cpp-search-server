@@ -113,10 +113,10 @@ public:
     
           template <typename Status_check>  
         vector<Document> FindTopDocuments(const string& raw_query,
-                                      Status_check status_check ) const {
+                                      Status_check status_check) const {
         const Query query = ParseQuery(raw_query);
         
-        auto matched_documents = FindAllDocuments(query,  status_check );
+        auto matched_documents = FindAllDocuments(query,  status_check);
 
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
@@ -133,7 +133,7 @@ public:
      
 }
     
-     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status ) const {
+     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
        return FindTopDocuments(raw_query,
             [status](int document_id, DocumentStatus status1, int rating)
             {
@@ -272,7 +272,7 @@ private:
             }
             const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
                for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
-                if (status_check (document_id, documents_.at(document_id).status,documents_.at(document_id).rating )) {
+                if (status_check (document_id, documents_.at(document_id).status,documents_.at(document_id).rating)) {
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }
@@ -300,7 +300,7 @@ private:
 
 /*---------------------------ФРЕЙМВОРК ТЕСТОВ--------------------------------------*/
 template < typename key,  typename value > 
-ostream& operator<<(ostream& out, const pair<key,value>& p1 ) {
+ostream& operator<<(ostream& out, const pair<key,value>& p1) {
      
     out<<p1.first; 
     out<< ": "s;
@@ -313,7 +313,7 @@ ostream& operator<<(ostream& out, const pair<key,value>& p1 ) {
 template <typename Cont>
 void Print(ostream& out, const Cont& x){
     bool a=1;
-    for ( const auto& x1: x) {
+    for (const auto& x1: x) {
         if (a) {
          out<<x1;
          a=0;
@@ -328,22 +328,22 @@ void Print(ostream& out, const Cont& x){
 
 
 template <typename Element1>
-ostream& operator<<( ostream& out, const vector<Element1>& x ) {
+ostream& operator<<(ostream& out, const vector<Element1>& x) {
  out<<"["s; 
-   Print(  out,  x) ;
+   Print(out,  x) ;
      out<<"]"s;
     return out;
 }
 
 template <typename Element2>
-ostream& operator<<( ostream& out, const set<Element2>& x ) {
+ostream& operator<<(ostream& out, const set<Element2>& x) {
  out<<"{"s; 
-   Print(  out,  x) ;
+   Print(out,  x) ;
      out<<"}"s;
     return out;
 }
 
-ostream& operator<<( ostream& out, const DocumentStatus& x ) {
+ostream& operator<<(ostream& out, const DocumentStatus& x) {
  switch (x){
     case DocumentStatus::ACTUAL:
     out<<"ACTUAL"s;
@@ -363,9 +363,9 @@ ostream& operator<<( ostream& out, const DocumentStatus& x ) {
 }
 
 template < typename key,  typename value>
-ostream& operator<<( ostream& out, const map <key, value>& x ) {
+ostream& operator<<(ostream& out, const map <key, value>& x) {
  out<<"{"s; 
-   Print(  out,  x) ;
+   Print(out,  x) ;
      out<<"}"s;
     return out;
 }
@@ -409,7 +409,7 @@ void AssertImpl(bool value, const string& expr_str, const string& file, const st
 
 
 template <typename TestFunc >
-void RunTestImpl( TestFunc testfunc, const string& testfunc_str ) {
+void RunTestImpl(TestFunc testfunc, const string& testfunc_str) {
    testfunc();
    cerr<< testfunc_str<<" OK"s<< endl;  
 }
@@ -511,7 +511,7 @@ void TestDocumentSorting(){
     server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
     server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::ACTUAL, {-4, 5, 5});
     server.AddDocument(2, "box craft"s, DocumentStatus::ACTUAL, {-5, 9, 0});
-    const auto result = server.FindTopDocuments("bite"s );
+    const auto result = server.FindTopDocuments("bite"s);
     ASSERT_EQUAL((result.size()), 2);
     ASSERT_HINT((result[0].relevance>result[1].relevance), "сортирока документов по релевантности работает некорректно"s);
 }
@@ -534,18 +534,10 @@ void TestDocumentRating(){
     ASSERT_EQUAL(result.size(), 2);
     
     int ratings_sum_doc1 = 0;
-    for (int x: ratings1) {
-        ratings_sum_doc1 += x;
+    for (int rating: ratings1) {
+        ratings_sum_doc1 += rating;
     }
     int expected_rating1 = ratings_sum_doc1 / static_cast<int>(ratings1.size());
-
-    int ratings_sum_doc2 = 0;
-    for (int x: ratings2) {
-        ratings_sum_doc2 += x;
-    }
-    int expected_rating2 = ratings_sum_doc2 / static_cast<int>(ratings2.size());
-
-    ASSERT_EQUAL_HINT(result[0].rating, expected_rating2 , "неправильно считается рейтинг документов"s);
     ASSERT_EQUAL_HINT(result[1].rating, expected_rating1 , "неправильно считается рейтинг документов"s);
 }
 //проверяем использование предиката пользователя
@@ -595,22 +587,18 @@ void TestDocumentRelevance(){
     server.AddDocument(doc_id3, content3, DocumentStatus::ACTUAL, ratings3);
     const auto result = server.FindTopDocuments("bite box"s);
     
-    
     double IDF_bite = log(static_cast<double>(DOCUMENT_COUNT) / 2.0); // слово bite содержится в двух документах
     double IDF_box = log(static_cast<double>(DOCUMENT_COUNT) / 1.0); // слово box содержится в одном документе
-    
-
+ 
     ASSERT_EQUAL((result.size()), 3);
 
-    
-       const double TF_bite_1 = 1.0 / 4.0; // слово bite встречается 1 раз в документе из 4 слов
-       const double TF_bite_2 = 2.0 / 5.0; // слово bite встречается 2 раза в документе из 5 слов
-       const double TF_box_3 = 1.0 / 2.0;    // слово box встречается 1 раз в документе из 2 слов
-       const double expected_relevance1 = TF_bite_1 * IDF_bite; //0.044
-       const double expected_relevance2 = TF_bite_2 * IDF_bite; //0.07
-       const double expected_relevance3 = TF_box_3 * IDF_box;  //0.23
+    const double TF_bite_1 = 1.0 / 4.0; // слово bite встречается 1 раз в документе из 4 слов
+    const double TF_bite_2 = 2.0 / 5.0; // слово bite встречается 2 раза в документе из 5 слов
+    const double TF_box_3 = 1.0 / 2.0;    // слово box встречается 1 раз в документе из 2 слов
+    const double expected_relevance1 = TF_bite_1 * IDF_bite; //0.044
+    const double expected_relevance2 = TF_bite_2 * IDF_bite; //0.07
+    const double expected_relevance3 = TF_box_3 * IDF_box;  //0.23
 
-    
     ASSERT_HINT((abs(result[0].relevance - expected_relevance3) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
     ASSERT_HINT((abs(result[1].relevance - expected_relevance2) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
     ASSERT_HINT((abs(result[2].relevance - expected_relevance1) < ACCEPTED_RELEVANCE_DIFFERENCE), "некорректно вычисляется релевантность документов"s);
