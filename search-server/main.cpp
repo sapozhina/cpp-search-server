@@ -33,6 +33,7 @@ vector<string> SplitIntoWords(const string& text) {
     vector<string> words;
     string word;
     for (const char c : text) {
+        if  (c >= '\0' && c < ' ') {throw invalid_argument("попытка добавить текст документа или поисковый запрос с запрещенным(и) символом(симловами)"s);}
         if (c == ' ') {
             if (!word.empty()) {
                 words.push_back(word);
@@ -77,7 +78,6 @@ public:
 
     SearchServer(const string& stop_words) {
         for (const auto& word:SplitIntoWords(stop_words)) {
-             if (!IsValidWord(word)) {throw invalid_argument("стопс-слова не должны содержать недопустимые символы"s);}
             stop_words_.insert(word);
         }
     }
@@ -92,7 +92,6 @@ public:
     
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
-            if (!IsValidWord(word)) {throw invalid_argument("стоп-слова не должны содержать недопустимые символы"s);}
             stop_words_.insert(word);
         }
     }
@@ -107,13 +106,12 @@ public:
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-        docIDs.push_back(document_id);
+        docIDs_.push_back(document_id);
     }
   
     
-          template <typename Status_check>  
-        vector<Document> FindTopDocuments(const string& raw_query,
-                                      Status_check status_check) const {
+    template <typename Status_check>  
+    vector<Document> FindTopDocuments(const string& raw_query, Status_check status_check) const {
         const Query query = ParseQuery(raw_query);
         
         auto matched_documents = FindAllDocuments(query,  status_check);
@@ -179,8 +177,8 @@ public:
     }
     
     int GetDocumentId(int index) const{
-    if (index<0 || index>docIDs.size()) {throw out_of_range("индекс переданного документа выходит за пределы допустимого диапазона"s);} 
-        return docIDs[index];
+    if (index<0 || index>docIDs_.size()) {throw out_of_range("индекс переданного документа выходит за пределы допустимого диапазона"s);} 
+        return docIDs_[index];
     }
 
 private:
@@ -192,7 +190,7 @@ private:
     set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
-    vector<int> docIDs;
+    vector<int> docIDs_;
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -201,7 +199,6 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
-            if (!IsValidWord(word)) {throw invalid_argument("Наличие недопустимых символов (с кодами от 0 до 31) в тексте добавляемого документа"s);}
             if (!IsStopWord(word)) {
                 words.push_back(word);
             }
@@ -232,6 +229,8 @@ private:
         if (text[0] == '-') {
             is_minus = true;
             text = text.substr(1);
+            if(text.empty()) {throw invalid_argument("Отсутствие текста после символа «минус» в поисковом запросе"s);}
+            if(text[0]=='-') {throw invalid_argument("Наличие более чем одного минуса перед словами, которых не должно быть в искомых документах"s);}
         }
         return {text, is_minus, IsStopWord(text)};
     }
@@ -244,12 +243,9 @@ private:
     Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
-            if (!IsValidWord(word)) {throw invalid_argument("В словах поискового запроса есть недопустимые символы с кодами от 0 до 31"s);}
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
-                    if (query_word.data[0]=='-') {throw invalid_argument("Наличие более чем одного минуса перед словами, которых не должно быть в искомых документах"s);}
-                    if (query_word.data.empty()) {throw invalid_argument("Отсутствие текста после символа «минус» в поисковом запросе"s);}
                     query.minus_words.insert(query_word.data);
                 } else {
                     query.plus_words.insert(query_word.data);
