@@ -7,7 +7,24 @@
 	"settings": {
 		"files.associations": {
 			"iosfwd": "cpp",
-			"stdexcept": "cpp"
+			"stdexcept": "cpp",
+			"array": "cpp",
+			"deque": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"vector": "cpp",
+			"string_view": "cpp",
+			"initializer_list": "cpp",
+			"cwchar": "cpp",
+			"exception": "cpp",
+			"functional": "cpp",
+			"istream": "cpp",
+			"new": "cpp",
+			"ostream": "cpp",
+			"streambuf": "cpp",
+			"tuple": "cpp",
+			"type_traits": "cpp",
+			"iostream": "cpp"
 		}
 	}
 }

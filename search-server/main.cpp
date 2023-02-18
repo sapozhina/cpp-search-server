@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <stdexcept>
+#include <deque>
 
 using namespace std;
 
@@ -293,6 +294,158 @@ private:
                                    
 }
 };
+/*---------------------------Класс Paginator---------------------------------------*/
+template <typename Iterator>
+class IteratorRange {
+
+    Iterator page_begin;
+    Iterator page_end;
+    public:
+    IteratorRange (Iterator range_begin, Iterator range_end) {
+    page_begin = range_begin;
+    page_end = range_end ;
+    }
+
+    Iterator begin() const{
+    return page_begin;
+    }
+    Iterator end() const{
+    return page_end;
+    }
+    size_t size() const{
+    return page_end - page_begin;
+    }    
+}; 
+
+
+template <typename Iterator>
+class Paginator {
+    vector<IteratorRange<Iterator>> pages; 
+     
+    public:
+    Paginator (Iterator begin, Iterator end, size_t page_size) {
+        
+       for ( ; begin < end  ; begin += page_size) {
+       if (end - begin < page_size) {
+       pages.push_back(IteratorRange(begin, end));
+       }
+       else {
+       pages.push_back(IteratorRange(begin,  begin + page_size));
+       }
+         
+       } 
+       
+    }
+    auto begin() const{
+    return pages.begin();
+    }
+    auto end() const{
+    return pages.end();
+    }
+    size_t size() const{
+    return pages.size();
+    }     
+
+}; 
+
+template <typename Container>
+auto Paginate(const Container& c, size_t page_size) {
+    return Paginator(begin(c), end(c), page_size);
+}
+
+ostream& operator<<(ostream& os, const Document& document) {
+    os << "{ document_id = "s<< document.id<< ", relevance = "s<< document.relevance << ", rating = "s<< document.rating<< " }"s;
+    return os;
+}
+
+template <typename Iterator>
+ostream& operator<<(ostream& os, const IteratorRange<Iterator> &range) {
+    Iterator begin =  range.begin();
+    for ( ; begin < range.end(); begin++) {
+        os<< *begin;
+    }
+    return os;
+}
+
+
+
+/*----------------------------------------------------------- КЛАСС RequestQueque*----------------------------------------------------------*/
+
+class RequestQueue {
+public:
+    explicit RequestQueue(const SearchServer& search_server)
+    :server(search_server)
+     {
+       /* server = search_server;*/ // напишите реализацию
+    }
+    // сделаем "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
+    template <typename DocumentPredicate>
+    vector<Document> AddFindRequest(const string& raw_query, DocumentPredicate document_predicate) {
+        auto result =  server.FindTopDocuments(raw_query,  document_predicate);
+       if (time < min_in_day_ ) {
+            time+= 1;
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_ += 1;}
+        }
+        else {
+            if  (requests_.front().IsEmpty) {no_results_ -= 1;}
+            requests_.pop_front();
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_+=1;}
+        }
+        
+        return result;// напишите реализацию
+    }
+    vector<Document> AddFindRequest(const string& raw_query, DocumentStatus status) {
+        auto result =  server.FindTopDocuments(raw_query,  status);
+         if (time < min_in_day_ ) {
+            time+= 1;
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_ += 1;}
+        }
+        else {
+            if  (requests_.front().IsEmpty) {no_results_ -= 1;}
+            requests_.pop_front();
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_+=1;}
+        }
+        return result; // напишите реализацию
+    }
+    vector<Document> AddFindRequest(const string& raw_query) {
+        auto result =  server.FindTopDocuments(raw_query);
+         if (time < min_in_day_ ) {
+            time+= 1;
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_ += 1;}
+        }
+        else {
+            if  (requests_.front().IsEmpty) {no_results_ -= 1;}
+            requests_.pop_front();
+            requests_.push_back({result, result.empty()});
+            if (result.empty()) {no_results_+=1;}
+        }
+        return result; // напишите реализацию
+    }
+    int GetNoResultRequests() const {
+        return  no_results_;// напишите реализацию
+    }
+private:
+    struct QueryResult {
+        vector<Document> documents;
+        bool IsEmpty;// определите, что должно быть в структуре
+    };
+    deque<QueryResult> requests_;
+    int no_results_ = 0;
+    const static int min_in_day_ = 1440;
+    int time = 0;
+    const SearchServer& server;// возможно, здесь вам понадобится что-то ещё
+}; 
+
+
+
+
+
+
 
 /*---------------------------ФРЕЙМВОРК ТЕСТОВ--------------------------------------*/
 template < typename key,  typename value > 
@@ -601,6 +754,7 @@ void TestDocumentRelevance(){
      
 }
 
+
 // Функция TestSearchServer является точкой входа для запуска тестов
 void TestSearchServer() {
     RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
@@ -615,12 +769,87 @@ void TestSearchServer() {
     // Не забудьте вызывать остальные тесты здесь
 }
 
+/*--------------------------------ТЕСТИРУЕМ ОЧЕРЕД ЗАПРОСОВ-------------------------------*/
 
+// Проверяем что добавление пустого запроса увеличивает число пустых запросов
+void TestIncreasingEmptyCount(){
+    SearchServer server;
+    server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
+    server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::BANNED, {-4, 5, 5});
+    server.AddDocument(2, "box craft"s, DocumentStatus::IRRELEVANT, {-5, 9, 0});
+    RequestQueue que(server);
+    que.AddFindRequest("bullshit"s);
+    int result = que.GetNoResultRequests();
+    ASSERT_EQUAL_HINT(1, result, "не увеличивается число пустых запросов"s);
+     
+}
 
+// провереям что добавление непустого запроса не увеличивает число пустых запросов
+void TestNotIncreasingEmptyCount(){
+    SearchServer server;
+    server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
+    server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::BANNED, {-4, 5, 5});
+    server.AddDocument(2, "box craft"s, DocumentStatus::IRRELEVANT, {-5, 9, 0});
+    RequestQueue que(server);
+    que.AddFindRequest("bullshit"s);
+    int result = que.GetNoResultRequests();
+    ASSERT_EQUAL_HINT(1, result, "не увеличивается число пустых запросов"s);
 
+    que.AddFindRequest("bat"s);
+    result = que.GetNoResultRequests();
+    ASSERT_EQUAL_HINT(1, result, "добавление непустого запроса  увеличивает число пустых запросов"s);
+     
+}
+
+// провереям что происходит после заполнения дека
+void TestWhatHappensAfterDequeIsFull(){
+    SearchServer server;
+    server.AddDocument(0, "cat dog bite bat"s, DocumentStatus::ACTUAL, {-7, 4, 3});
+    server.AddDocument(1, "whale fox bite bat bite"s, DocumentStatus::BANNED, {-4, 5, 5});
+    server.AddDocument(2, "box craft"s, DocumentStatus::IRRELEVANT, {-5, 9, 0});
+    RequestQueue que(server);
+    for (int i = 0; i < 1439; ++i) {
+         que.AddFindRequest("bullshit"s);
+    }
+    
+    int result = que.GetNoResultRequests();
+    ASSERT_EQUAL_HINT(1439, result, "не увеличивается число пустых запросов"s);
+
+    que.AddFindRequest("bat"s);
+    result = que.GetNoResultRequests();
+    ASSERT_EQUAL_HINT(1439, result, "добавление непустого запроса  увеличивает число пустых запросов"s);
+     
+}
+
+void TestRequestQueQue() {
+     RUN_TEST(TestIncreasingEmptyCount);
+     RUN_TEST(TestNotIncreasingEmptyCount);
+     RUN_TEST(TestWhatHappensAfterDequeIsFull);
+    // Не забудьте вызывать остальные тесты здесь
+}
 
 int main() {
-    TestSearchServer();
-    // Если вы видите эту строку, значит все тесты прошли успешно
-    cout << "Search server testing finished"s << endl;
-}
+    /*TestRequestQueQue();*/
+    SearchServer search_server("and in at"s);
+    RequestQueue request_queue(search_server);
+    search_server.AddDocument(1, "curly cat curly tail"s, DocumentStatus::ACTUAL, {7, 2, 7});
+    search_server.AddDocument(2, "curly dog and fancy collar"s, DocumentStatus::ACTUAL, {1, 2, 3});
+    search_server.AddDocument(3, "big cat fancy collar "s, DocumentStatus::ACTUAL, {1, 2, 8});
+    search_server.AddDocument(4, "big dog sparrow Eugene"s, DocumentStatus::ACTUAL, {1, 3, 2});
+    search_server.AddDocument(5, "big dog sparrow Vasiliy"s, DocumentStatus::ACTUAL, {1, 1, 1});
+    // 1439 запросов с нулевым результатом
+    for (int i = 0; i < 1439; ++i) {
+        request_queue.AddFindRequest("empty request"s);
+    }
+     
+    // все еще 1439 запросов с нулевым результатом
+    request_queue.AddFindRequest("curly dog"s);
+     
+    // новые сутки, первый запрос удален, 1438 запросов с нулевым результатом
+    request_queue.AddFindRequest("big collar"s);
+    
+    // первый запрос удален, 1437 запросов с нулевым результатом
+    request_queue.AddFindRequest("sparrow"s);
+    cout << "Total empty requests: "s << request_queue.GetNoResultRequests() << endl;
+    return 0;
+} 
