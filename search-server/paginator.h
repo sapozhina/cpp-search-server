@@ -1,6 +1,7 @@
 #pragma once
-#include "string_processing.h"
+
 #include "document.h"
+#include <iostream>
 
 template <typename Iterator>
 class IteratorRange {

@@ -42,7 +42,9 @@
     }
   
     
-    
+    int SearchServer::GetDocumentCount() const {
+        return documents_.size();
+    }
     
      
     std::tuple<std::vector<std::string>, DocumentStatus> SearchServer::MatchDocument(const std::string& raw_query,
