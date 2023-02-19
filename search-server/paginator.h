@@ -2,6 +2,7 @@
 
 #include "document.h"
 #include <iostream>
+#include <vector>
 
 template <typename Iterator>
 class IteratorRange {
@@ -28,7 +29,7 @@ class IteratorRange {
 
 template <typename Iterator>
 class Paginator {
-    vector<IteratorRange<Iterator>> pages; 
+    std::vector<IteratorRange<Iterator>> pages; 
      
     public:
     Paginator (Iterator begin, Iterator end, size_t page_size) {
@@ -61,13 +62,10 @@ auto Paginate(const Container& c, size_t page_size) {
     return Paginator(begin(c), end(c), page_size);
 }
 
-std::ostream& std::operator<<(ostream& os, const Document& document) {
-    os << "{ document_id = "s<< document.id<< ", relevance = "s<< document.relevance << ", rating = "s<< document.rating<< " }"s;
-    return os;
-}
+
 
 template <typename Iterator>
-std::ostream& std::operator<<(ostream& os, const IteratorRange<Iterator> &range) {
+std::ostream& operator<<(std::ostream& os, const IteratorRange<Iterator> &range) {
     Iterator begin =  range.begin();
     for ( ; begin < range.end(); begin++) {
         os<< *begin;

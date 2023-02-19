@@ -5,6 +5,7 @@
 #include "request_queue.h"
 #include "test_server.h"
 #include "test_queue.h"
+#include "paginator.h"
 
 
 int main() {
