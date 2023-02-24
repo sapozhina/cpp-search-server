@@ -13,16 +13,23 @@ public:
     template <typename DocumentPredicate>
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) {
         auto result =  server.FindTopDocuments(raw_query,  document_predicate);
-       if (time < min_in_day_ ) {
-            time+= 1;
-            requests_.push_back({result, result.empty()});
-            if (result.empty()) {no_results_ += 1;}
+        if (time < min_in_day_ ) {
+            time++;
+            requests_.push_back({result.size(), result.empty()});
+            if (result.empty()) {
+                no_results_++;
+                }
         }
         else {
-            if  (requests_.front().IsEmpty) {no_results_ -= 1;}
+            if  (requests_.front().IsEmpty) {
+                no_results_--;
+                }
             requests_.pop_front();
-            requests_.push_back({result, result.empty()});
-            if (result.empty()) {no_results_+=1;}
+            requests_.push_back({result.size(), result.empty()});
+            if (result.empty()) {
+                no_results_++;
+                }
+
         }
         
         return result;// напишите реализацию
@@ -33,7 +40,7 @@ public:
 
 private:
     struct QueryResult {
-        std::vector<Document> documents;
+        size_t number_of_documents;
         bool IsEmpty;// определите, что должно быть в структуре
     };
     std::deque<QueryResult> requests_;

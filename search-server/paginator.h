@@ -9,20 +9,24 @@ class IteratorRange {
 
     Iterator page_begin;
     Iterator page_end;
+
     public:
+
     IteratorRange (Iterator range_begin, Iterator range_end) {
-    page_begin = range_begin;
-    page_end = range_end ;
+        page_begin = range_begin;
+        page_end = range_end ;
     }
 
     Iterator begin() const{
-    return page_begin;
+         return page_begin;
     }
+
     Iterator end() const{
-    return page_end;
+        return page_end;
     }
+
     size_t size() const{
-    return page_end - page_begin;
+        return page_end - page_begin;
     }    
 }; 
 
@@ -32,27 +36,31 @@ class Paginator {
     std::vector<IteratorRange<Iterator>> pages; 
      
     public:
+
     Paginator (Iterator begin, Iterator end, size_t page_size) {
         
-       for ( ; begin < end  ; begin += page_size) {
-       if (end - begin < page_size) {
-       pages.push_back(IteratorRange(begin, end));
-       }
-       else {
-       pages.push_back(IteratorRange(begin,  begin + page_size));
-       }
+        for ( ; begin < end  ; begin += page_size) {
+            if (end - begin < page_size) {
+                pages.push_back(IteratorRange(begin, end));
+            }
+            else {
+                pages.push_back(IteratorRange(begin,  begin + page_size));
+            }
          
-       } 
+        } 
        
     }
+
     auto begin() const{
-    return pages.begin();
+        return pages.begin();
     }
+
     auto end() const{
-    return pages.end();
+        return pages.end();
     }
+
     size_t size() const{
-    return pages.size();
+        return pages.size();
     }     
 
 }; 
