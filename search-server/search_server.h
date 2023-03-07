@@ -7,6 +7,8 @@
 #include <set>
 #include <cmath>
 #include <stdexcept>
+#include "log_duration.h"
+
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 const double ACCEPTED_RELEVANCE_DIFFERENCE = 1e-6;
@@ -26,9 +28,14 @@ public:
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status) const;
     std::vector<Document> FindTopDocuments(const std::string& raw_query) const;
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
-    int GetDocumentId(int index) const;
     int GetDocumentCount() const;
-
+    std::vector<int>::const_iterator begin() const;
+    std::vector<int>::const_iterator end() const;
+    
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    const std::set<std::string>& GetWordsList(int document_id) const;
+    void RemoveDocument(int document_id);
+    
 private:
     
     static bool IsValidWord(const std::string& word);
@@ -51,7 +58,9 @@ private:
 
     std::set<std::string> stop_words_;
     std::map<std::string, std::map<int, double>> word_to_document_freqs_;
+    std::map<int, std::map<std::string, double>> ID_to_word_freqs_;
     std::map<int, DocumentData> documents_;
+    std::map<int, std::set<std::string>> ID_to_words_list_;
     std::vector<int> docIDs_;
     bool IsStopWord(const std::string& word) const;
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
@@ -62,6 +71,8 @@ private:
     double ComputeWordInverseDocumentFreq(const std::string& word) const;
     template <typename Status_check>
     std::vector<Document> FindAllDocuments(const Query& query, Status_check status_check) const;
+    
+    
 };
 
 
@@ -77,6 +88,7 @@ SearchServer::SearchServer(const Cont& stop_words) {
 
 template <typename Status_check>  
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, Status_check status_check) const {
+    
     const Query query = ParseQuery(raw_query);
         
     auto matched_documents = FindAllDocuments(query,  status_check);

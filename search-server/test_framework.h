@@ -1,9 +1,16 @@
+
+
 #pragma once
+
 #include <iostream>
 #include <utility>
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
+#include "search_server.h"
+#include "document.h"
+
 
 
 template < typename key,  typename value > 
@@ -50,24 +57,7 @@ std::ostream& operator<<(std::ostream& out, const std::set<Element2>& x) {
     return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const DocumentStatus& x) {
- switch (x){
-    case DocumentStatus::ACTUAL:
-    out<<"ACTUAL"s;
-    break;
-    case DocumentStatus::BANNED:
-    out<<"BANNED"s;
-    break;
-    case DocumentStatus::IRRELEVANT:
-    out<<"IRRELEVANT"s;
-    break;
-    case DocumentStatus::REMOVED:
-    out<<"REMOVED"s;
-    break;
- }
-
-    return out;
-}
+std::ostream& operator<<(std::ostream& out, const DocumentStatus& x);
 
 template < typename key,  typename value>
 std::ostream& operator<<(std::ostream& out, const std::map <key, value>& x) {
@@ -81,7 +71,7 @@ template <typename T, typename U>
 void AssertEqualImpl(const T& t, const U& u, const std::string& t_str, const std::string& u_str, const std::string& file,
                      const std::string& func, unsigned line, const std::string& hint) {
     if (t != u) {
-        std::cout << boolalpha;
+        std::cout << std::boolalpha;
         std::cout << file << "("s << line << "): "s << func << ": "s;
         std::cout << "ASSERT_EQUAL("s << t_str << ", "s << u_str << ") failed: "s;
         std::cout << t << " != "s << u << "."s;
@@ -97,18 +87,7 @@ void AssertEqualImpl(const T& t, const U& u, const std::string& t_str, const std
 
 #define ASSERT_EQUAL_HINT(a, b, hint) AssertEqualImpl((a), (b), #a, #b, __FILE__, __FUNCTION__, __LINE__, (hint))
 
-void AssertImpl(bool value, const std::string& expr_str, const std::string& file, const std::string& func, unsigned line,
-                const std::string& hint) {
-    if (!value) {
-        std::cout << file << "("s << line << "): "s << func << ": "s;
-        std::cout << "ASSERT("s << expr_str << ") failed."s;
-        if (!hint.empty()) {
-            std::cout << " Hint: "s << hint;
-        }
-        std::cout << std::endl;
-        abort();
-    }
-}
+void AssertImpl(bool value, const std::string& expr_str, const std::string& file, const std::string& func, unsigned line,  const std::string& hint);
 
 #define ASSERT(expr) AssertImpl(!!(expr), #expr, __FILE__, __FUNCTION__, __LINE__, ""s)
 
@@ -122,3 +101,4 @@ void RunTestImpl(TestFunc testfunc, const std::string& testfunc_str) {
 }
 
 #define RUN_TEST(func) RunTestImpl ((func), #func)
+

@@ -6,11 +6,13 @@
 #include "test_server.h"
 #include "test_queue.h"
 #include "paginator.h"
+#include "test_framework.h"
  
+
 
 int main() {
     TestRequestQueQue();
-    TestSearchServer();
+    TestSearchServer(); 
     SearchServer search_server("and in at"s);
     RequestQueue request_queue(search_server);
     search_server.AddDocument(1, "curly cat curly tail"s, DocumentStatus::ACTUAL, {7, 2, 7});

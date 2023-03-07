@@ -1,16 +1,18 @@
+
+
 #include "test_server.h"
-#include "test_framework.h"
-#include "search_server.h"
+
+
 
 void TestAddingDocumentsIncreasesDocumentCount () {
     const int doc_id = 42;
-    const std::string content = "cat in the city";
+    const std::string content = "cat in the city"s;
     const std::vector<int> ratings = {1, 2, 3};
     {
         SearchServer server;
-        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 0, "изначально в сервере не должно быть документов");
+        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 0, "изначально в сервере не должно быть документов"s);
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 1, "не работает метод добавления документов");
+        ASSERT_EQUAL_HINT((server.GetDocumentCount()), 1, "не работает метод добавления документов"s);
         
     }
      
@@ -40,9 +42,7 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
     }
 }
 
-/*
-Разместите код остальных тестов здесь
-*/
+ 
 // проверяем исключение документов с минус-словами
 void TestExcludedocumentsWithMinusWords(){
     const int doc_id = 42;
@@ -201,3 +201,4 @@ void TestSearchServer() {
     RUN_TEST(TestAddingDocumentsIncreasesDocumentCount);  
     // Не забудьте вызывать остальные тесты здесь
 }
+

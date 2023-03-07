@@ -50,7 +50,11 @@
 			"utility": "cpp",
 			"limits": "cpp",
 			"numbers": "cpp",
-			"typeinfo": "cpp"
+			"typeinfo": "cpp",
+			"chrono": "cpp",
+			"ctime": "cpp",
+			"ratio": "cpp",
+			"sstream": "cpp"
 		}
 	},
 	"launch": {
