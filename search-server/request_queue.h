@@ -6,8 +6,8 @@ class RequestQueue {
 public:
     explicit RequestQueue(const SearchServer& search_server)
     :server(search_server)
-     {
-       /* server = search_server;*/ // напишите реализацию
+    {
+       
     }
     // сделаем "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
     template <typename DocumentPredicate>
@@ -18,17 +18,17 @@ public:
             requests_.push_back({result.size(), result.empty()});
             if (result.empty()) {
                 no_results_++;
-                }
+            }
         }
         else {
             if  (requests_.front().IsEmpty) {
                 no_results_--;
-                }
+            }
             requests_.pop_front();
             requests_.push_back({result.size(), result.empty()});
             if (result.empty()) {
                 no_results_++;
-                }
+            }
 
         }
         
